@@ -15,7 +15,7 @@ namespace asuClassRegistration
 
         public static FirefoxDriver driver;
         public const string asuUrl = "https://webapp4.asu.edu/myasu/";
-        public const string swapUrl = "https://www.asu.edu/go/swapclass/?STRM=2207&ACAD_CAREER=GRAD";
+        public const string swapUrl = "https://www.asu.edu/go/swapclass/?STRM=2211&ACAD_CAREER=GRAD";
         public static string path = AppContext.BaseDirectory + "\\failureScreens\\";
 
 
@@ -29,15 +29,19 @@ namespace asuClassRegistration
                     init();
                     if (driver != null)
                     {
-
-                        nav(asuUrl);
-                        String uName = Properties.Settings.Default.username;
-                        string pword = Properties.Settings.Default.password;
-                        login(uName, pword);
-                        string subjectNo = search(Properties.Settings.Default.subjectCode, Properties.Settings.Default.classNumberToPick, Properties.Settings.Default.location);
-                        string message = swap(Properties.Settings.Default.CourseNoToDrop, subjectNo);
-                        Console.WriteLine(message + "\n\npress key to continue..");
-                        break;
+                        List<string> classes = Properties.Settings.Default.classNumberToPick.Split(',').ToList();
+                        foreach(String clas in classes)
+                        {
+                            string subjectNo = search(Properties.Settings.Default.subjectCode, clas , Properties.Settings.Default.location);
+                            nav(asuUrl);
+                            String uName = Properties.Settings.Default.username;
+                            string pword = Properties.Settings.Default.password;
+                            login(uName, pword);
+                            string message = swap(Properties.Settings.Default.CourseNoToDrop, subjectNo);
+                            classes.Remove(clas);
+                            Console.WriteLine(message + "\n\npress key to continue..");
+                            break;
+                        }
                     }
                 }
                 catch (Exception e)
@@ -82,7 +86,7 @@ namespace asuClassRegistration
             IWebElement passWord = driver.FindElementById("password");
             userName.SendKeys(username);
             passWord.SendKeys(password);
-            driver.FindElementById("login_submit").FindElement(By.ClassName("submit")).Click();
+            driver.FindElement(By.Name("submit")).Click();
 
         }
 
@@ -91,7 +95,7 @@ namespace asuClassRegistration
             driver.Navigate().GoToUrl(url);
         }
 
-        public static IWebElement waitForElement(By by)
+        public static IWebElement waitForElement(By by, bool clickacble = false)
         {
             int attempt = 0;
             IWebElement element = null;
@@ -112,22 +116,34 @@ namespace asuClassRegistration
                     Thread.Sleep(attempt * 1000);
                 }
             }
+            if (clickacble)
+            {
+                WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
+                wait.Until(ExpectedConditions.ElementToBeClickable(by));
+            }
             return element;
         }
 
         public static string search(string subjectCode, string subjNo, string location)
         {
-            string url = "http://"+"webapp4.asu.edu/catalog/classlist?t=2207&s="+subjectCode.ToUpper()+"&n="+subjNo+"&hon=F&promod=F&c="+location+"&e=all&page=1";
+            string url = "http://"+"webapp4.asu.edu/catalog/classlist?t=2211&s="+subjectCode.ToUpper()+"&n="+subjNo+"&hon=F&promod=F&c="+location+"&e=all&page=1";
             int noOfClass = 0;
-            while(!(noOfClass>0))
+            bool isOpen = false;
+            while(!(noOfClass>0 && isOpen))
             {
                 nav(url);
                 IWebElement classAvailable = waitForElement(By.XPath("//*[@class='availableSeatsColumnValue']"));
-                noOfClass = int.Parse(classAvailable.Text.Split('o')[0].Trim());
-                IWebElement classNumber = waitForElement(By.XPath("//*[@class='classNbrColumnValue']/a"));
-                string classno = classNumber.Text.Trim();
-                if (noOfClass > 0)
+                try
                 {
+                    isOpen = classAvailable.FindElement(By.XPath(".//i[@title='seats available']")).Displayed;
+                }
+                catch(Exception)
+                {}
+                noOfClass = int.Parse(classAvailable.Text.Split('o')[0].Trim());
+                if (noOfClass > 0 && isOpen)
+                {
+                    IWebElement classNumber = waitForElement(By.XPath("//*[@class='classNbrColumnValue']/a"));
+                    string classno = classNumber.Text.Trim();
                     return classno;
                 }
                 else
@@ -143,52 +159,56 @@ namespace asuClassRegistration
         {
             nav(swapUrl);
             WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
-            IWebElement targetElement = null;
-            int attempt = 0;
-            while (targetElement == null && attempt<10)
-            {
-                try
-                {
-                    bool condition = false;
-                    while (condition != true)
-                    {
-                        driver = (FirefoxDriver)driver.SwitchTo().Frame(0);
-                        var frames = driver.FindElements(By.XPath("//frame"));
-                        foreach (var frame in frames)
-                        {
-                            if (((IWebElement)frame).GetAttribute("name").Equals("TargetContent"))
-                            {
-                                targetElement = frame;
-                                Console.WriteLine("\nfound frame in attempt no: " + (attempt+1));
-                                condition = true;
-                                break;
-                            }
-                        }
-                    }
+            //IWebElement targetElement = null;
+            //int attempt = 0;
+            //while (/*targetElement == null && */attempt<10)
+            //{
+            //    //try
+            //    //{
+            //    //    bool condition = false;
+            //    //    while (condition != true)
+            //    //    {
+            //    //        driver = (FirefoxDriver)driver.SwitchTo().Frame(0);
+            //    //        var frames = driver.FindElements(By.XPath("//frame"));
+            //    //        foreach (var frame in frames)
+            //    //        {
+            //    //            if (((IWebElement)frame).GetAttribute("name").Equals("TargetContent"))
+            //    //            {
+            //    //                targetElement = frame;
+            //    //                Console.WriteLine("\nfound frame in attempt no: " + (attempt+1));
+            //    //                condition = true;
+            //    //                break;
+            //    //            }
+            //    //        }
+            //    //    }
 
-                }
-                catch (Exception e)
-                {
-                    attempt++;
-                    driver.SwitchTo().ParentFrame();
-                    Console.WriteLine("\nattempt: " + attempt);
-                    Thread.Sleep(attempt * 1000);
-                }
-            }
+            //    //}
+            //    //catch (Exception e)
+            //    //{
+            //    //    attempt++;
+            //    //    driver.SwitchTo().ParentFrame();
+            //    //    Console.WriteLine("\nattempt: " + attempt);
+            //    //    Thread.Sleep(attempt * 1000);
+            //    //}
+            //}
             try
             {
-                driver = (FirefoxDriver)driver.SwitchTo().Frame(targetElement);
-                IWebElement sel = waitForElement(By.XPath(".//*[@id='DERIVED_REGFRM1_DESCR50$225$']"));
+                //driver = (FirefoxDriver)driver.SwitchTo().Frame(targetElement);
+                IWebElement sel = waitForElement(By.XPath(".//*[@id='DERIVED_REGFRM1_DESCR50$4$']"));
                 SelectElement subSelect = new SelectElement(sel);
                 subSelect.SelectByValue(subjectNumber1);
                 IWebElement newSub = driver.FindElementById("DERIVED_REGFRM1_CLASS_NBR");
                 newSub.SendKeys(subjectNumber2);
-                driver.FindElementById("DERIVED_REGFRM1_SSR_PB_ADDTOLIST2$106$").Click();
-                IWebElement next = waitForElement(By.Id("DERIVED_CLS_DTL_NEXT_PB"));
+                driver.FindElementById("SSR_SWAP_FL_WRK_SSR_PB_SRCH").Click();
+                IWebElement next = waitForElement(By.Id("PT_NEXT"), true);
                 next.Click();
-                IWebElement finishSwap = waitForElement(By.Id("DERIVED_REGFRM1_SSR_PB_SUBMIT"));
+                IWebElement reviewSwap = waitForElement(By.Id("DERIVED_SSR_FL_SSR_SELECT"), true);
+                reviewSwap.Click();
+                IWebElement finishSwap = waitForElement(By.Id("SSR_ENRL_FL_WRK_SUBMIT_PB"), true);
                 finishSwap.Click();
-                IWebElement message = waitForElement(By.Id("win0divDERIVED_REGFRM1_SSR_STATUS_LONG$200$$0"));
+                IWebElement confirm = waitForElement(By.Id("#ICYes"), true);
+                confirm.Click();
+                IWebElement message = waitForElement(By.Id("win14divDERIVED_REGFRM1_SS_MESSAGE_LONG$0"));
                 return message.Text;
             }
             catch (Exception e)
