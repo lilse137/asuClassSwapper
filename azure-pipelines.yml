@@ -20,7 +20,12 @@ steps:
 - task: NuGetCommand@2
   inputs:
     restoreSolution: '$(solution)'
-
+- task: SonarQubePrepare@4
+  inputs:
+    SonarQube: 'SonarQubeDemo'
+    scannerMode: 'MSBuild'
+    projectKey: 'fido_fdp'
+    projectName: 'FieldDataProcessor'
 - task: VSBuild@1
   inputs:
     solution: '$(solution)'
@@ -28,6 +33,9 @@ steps:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
 
+- task: SonarQubePublish@4
+  inputs:
+    pollingTimeoutSec: '300'
 - task: VSTest@2
   inputs:
     platform: '$(buildPlatform)'
